@@ -7,15 +7,22 @@
 //
 
 import UIKit
+import CoreLocation
+//import FacebookSDK
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
                             
     var window: UIWindow?
-
-
+    
     func application(application: UIApplication, didFinishLaunchingWithOptions launchOptions: NSDictionary?) -> Bool {
-        // Override point for customization after application launch.
+        FBLoginView.self
+        FBProfilePictureView.self
+        //locationManager.requestAlwaysAuthorization()
+        Parse.setApplicationId("IdH2nGMoBYXz3E6mjMlzIu4bfsRkw3FfV8ls4a6r", clientKey: "mmoCKgDBhoHs9eA9jK63yQtAf8HRHwVLa4oRidqJ")
+        application.registerForRemoteNotificationTypes(UIRemoteNotificationType.None |
+            UIRemoteNotificationType.Alert |
+            UIRemoteNotificationType.Sound)
         return true
     }
 
@@ -39,6 +46,44 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func applicationWillTerminate(application: UIApplication) {
         // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
+    }
+    
+    func application(application: UIApplication!,
+        openURL url: NSURL!,
+        sourceApplication asourceApplication: String!,
+        annotation aannotation: AnyObject!) -> Bool {
+            var wasHandled:ObjCBool = FBAppCall.handleOpenURL(url, sourceApplication: asourceApplication)
+            //[FBAppCall handleOpenURL:url sourceApplication:sourceApplication];
+            
+            // You can add your app-specific url handling code here if needed
+            NSLog("123");
+            return wasHandled;
+    }
+    
+    func application(application:UIApplication,
+        didRegisterForRemoteNotificationsWithDeviceToken deviceToken:NSData)
+    {
+    // Store the deviceToken in the current installation and save it to Parse.
+        var currentInstallation:PFInstallation = PFInstallation.currentInstallation()
+        currentInstallation.setDeviceTokenFromData(deviceToken)
+        currentInstallation.saveInBackground()
+    }
+    
+    func application(application:UIApplication,
+        didReceiveRemoteNotification userInfo:NSDictionary ) {
+            PFPush.handlePush(userInfo)
+    }
+    
+    func ios8() -> Bool {
+        
+        println("iOS " + UIDevice.currentDevice().systemVersion)
+        
+        if ( UIDevice.currentDevice().systemVersion == "8.0" ) {
+            return true
+        } else {
+            return false
+        }
+        
     }
 
 
