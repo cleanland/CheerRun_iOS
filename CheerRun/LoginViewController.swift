@@ -14,7 +14,7 @@ class LoginViewController: UIViewController,FBLoginViewDelegate, UIScrollViewDel
     
     @IBOutlet var scrollView:UIScrollView
     
-    
+    var timer: NSTimer!
     override func viewDidLoad() {
         super.viewDidLoad()
         var fullScreenBounds:CGRect = UIScreen.mainScreen().bounds
@@ -22,7 +22,8 @@ class LoginViewController: UIViewController,FBLoginViewDelegate, UIScrollViewDel
         loginView.frame=CGRectMake(fullScreenBounds.width/2-loginView.frame.width/2, 400, loginView.frame.width, loginView.frame.height)
         loginView.delegate=self
         
-        // Do any additional setup after loading the view.
+        
+        // scroll view that can transfer ㄇutomatedly
         var model1:IntroModel = IntroModel(title:"哈囉" ,description:"歡迎使用這款App", image:"image1.jpg")
         
         var model2:IntroModel = IntroModel(title:"紀錄" ,description:"這款App可以幫您紀錄您的跑步過程的點點滴滴", image:"image2.jpg")
@@ -31,7 +32,14 @@ class LoginViewController: UIViewController,FBLoginViewDelegate, UIScrollViewDel
         
         self.view = IntroControll(frame:CGRectMake(0, 0, self.view.frame.size.width, self.view.frame.size.height), pages:[model1, model2, model3])
         self.view.addSubview(loginView)
+        
+        //if user login in FaceBook
+        if FBSession.activeSession().isOpen {
+            showWaiting()
+            
+        }
     }
+    
 
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
@@ -46,9 +54,11 @@ class LoginViewController: UIViewController,FBLoginViewDelegate, UIScrollViewDel
     
     func loginViewFetchedUserInfo(loginView:FBLoginView,
         user fb_user:FBGraphUser){
-           
+            
             UserData.fb_id=fb_user.objectID
             UserData.name=fb_user.name
+            
+            //get token
             var post :String="type=facebook&accessToken="+FBSession.activeSession().accessTokenData.accessToken
             var json:NSString=UserData.getJSON("user/login", post: post)
             if json != "" {
@@ -63,15 +73,19 @@ class LoginViewController: UIViewController,FBLoginViewDelegate, UIScrollViewDel
                 UserData.photourl=photo_info
                 NSLog("token=%@",UserData.token!)
                 post="id="+UserData.uid!+"&token="+UserData.token!
+                
+                //getFriendList
                 json=UserData.getJSON("friend/list", post: post)
                 NSLog("json=%@",json)
                 data=json.dataUsingEncoding(NSUTF8StringEncoding)
                 let friend_dic = NSJSONSerialization.JSONObjectWithData(data, options: NSJSONReadingOptions.MutableContainers, error: nil) as NSDictionary
                 
-                let friend_json:NSArray = friend_dic["friend"] as NSArray
+                let friend_json_list:NSArray = friend_dic["friend"] as NSArray
                 
-                println("count=\(UserData.getFriendID().count),new=\(friend_json.count)")
-                if UserData.getFriendID().count != friend_json.count
+                println("count=\(UserData.getFriendID().count),new=\(friend_json_list.count)")
+                
+                //determine whether friend.count change
+                if UserData.getFriendID().count != friend_json_list.count
                 {
                     UserData.clearSettings()
                     UserData.fb_id=fb_user.objectID
@@ -79,28 +93,31 @@ class LoginViewController: UIViewController,FBLoginViewDelegate, UIScrollViewDel
                     UserData.token=token_info
                     UserData.uid="\(uid_info)"
                     UserData.photourl=photo_info
-                    for obj : AnyObject in friend_json {
+                    for obj : AnyObject in friend_json_list {
                         var n :Int=Int(obj as NSNumber)
+                        // n = friend_id
                         if n > 0 {
                             post="id=\(UserData.uid!)&token=\(UserData.token!)&queryid=\(n)"
                             var friend_json=UserData.getJSON("user/info", post: post)
                             println(friend_json)
                             var friend_data=friend_json.dataUsingEncoding(NSUTF8StringEncoding)
                             var friend_dic=NSJSONSerialization.JSONObjectWithData(friend_data, options: NSJSONReadingOptions.MutableLeaves, error: nil) as NSDictionary
-                            let valid:Bool? = friend_dic.objectForKey("valid").boolValue as? Bool
+                            let valid:Bool = friend_dic.objectForKey("valid").boolValue as Bool
+                            // valid = false means user is not exist
                             if valid == true {
-                                let f_id:String? = friend_dic.objectForKey("id").stringValue as? String
-                                let f_name:String? = friend_dic.objectForKey("name") as? String
-                                let f_photourl:String? = friend_dic.objectForKey("photourl") as? String
-                                let f_lat:Double? = friend_dic.objectForKey("lat") as? Double
-                                let f_lon:Double? = friend_dic.objectForKey("lon") as? Double
+                                let f_id:String = friend_dic.objectForKey("id").stringValue as String
+                                let f_name:String = friend_dic.objectForKey("name") as String
+                                let f_photourl:String = friend_dic.objectForKey("photourl") as String
                                 
-                                UserData.addFriendName(f_name!)
-                                UserData.addFriendID(f_id!)
+                                //add friend data
+                                UserData.addFriendName(f_name)
+                                UserData.addFriendID(f_id)
                                 var url:NSURL=NSURL(string:f_photourl)
                                 UserData.addFriendImg(UIImage(data: NSData(contentsOfURL: url)))
-                                if f_lat != nil && f_lon != nil {
-                                    UserData.addFriendLoc(CLLocationCoordinate2D(latitude: f_lat!,longitude: f_lon!))
+                                if friend_dic.objectForKey("lat") != nil && friend_dic.objectForKey("lon") != nil {
+                                    let f_lat:Double = friend_dic.objectForKey("lat") as Double
+                                    let f_lon:Double = friend_dic.objectForKey("lon") as Double
+                                    UserData.addFriendLoc(CLLocationCoordinate2D(latitude: f_lat,longitude: f_lon))
                                 }
                                 else {
                                     UserData.addFriendLoc(CLLocationCoordinate2D(latitude: 0,longitude: 0))
@@ -110,20 +127,21 @@ class LoginViewController: UIViewController,FBLoginViewDelegate, UIScrollViewDel
                     }
                 }
                 else {
-                    for obj : AnyObject in friend_json {
+                    for obj : AnyObject in friend_json_list {
                         var n :Int=Int(obj as NSNumber)
                         if n > 0 {
+                            //only get friends location
                             post="id=\(UserData.uid!)&token=\(UserData.token!)&queryid=\(n)"
                             var friend_json=UserData.getJSON("user/info", post: post)
                             println(friend_json)
                             var friend_data=friend_json.dataUsingEncoding(NSUTF8StringEncoding)
                             var friend_dic=NSJSONSerialization.JSONObjectWithData(friend_data, options: NSJSONReadingOptions.MutableLeaves, error: nil) as NSDictionary
-                            let valid:Bool? = friend_dic.objectForKey("valid").boolValue as? Bool
+                            let valid:Bool = friend_dic.objectForKey("valid").boolValue as Bool
                             if valid == true {
-                                let f_lat:Double? = friend_dic.objectForKey("lat") as? Double
-                                let f_lon:Double? = friend_dic.objectForKey("lon") as? Double
+                                let f_lat:Double = friend_dic.objectForKey("lat") as Double
+                                let f_lon:Double = friend_dic.objectForKey("lon") as Double
                                 if f_lat != nil && f_lon != nil {
-                                    UserData.addFriendLoc(CLLocationCoordinate2D(latitude: f_lat!,longitude: f_lon!))
+                                    UserData.addFriendLoc(CLLocationCoordinate2D(latitude: f_lat,longitude: f_lon))
                                 }
                                 else {
                                     UserData.addFriendLoc(CLLocationCoordinate2D(latitude: 0,longitude: 0))
@@ -134,29 +152,42 @@ class LoginViewController: UIViewController,FBLoginViewDelegate, UIScrollViewDel
                     
                 }
                 UserData.saveSettings()
+                
+                //get recommended friend
                 post = "id=\(UserData.uid)&accessToken=\(FBSession.activeSession().accessTokenData.accessToken)"
                 json = UserData.getJSON("friend/fb", post: post)
                 data=json.dataUsingEncoding(NSUTF8StringEncoding)
                 let fb_dic = NSJSONSerialization.JSONObjectWithData(data, options: NSJSONReadingOptions.MutableContainers, error: nil) as NSDictionary
                 
                 let fb_json:NSArray = fb_dic["fb_friends"] as NSArray
-                println("helo")
+
                 for obj : AnyObject in fb_json {
-                    let f_id:String? = obj.objectForKey("user_id").stringValue as? String
-                    let f_name:String? = obj.objectForKey("fb_name") as? String
-                    let f_photourl:String? = obj.objectForKey("fb_url") as? String
-                    UserData.addFBFriendName(f_name!)
-                    UserData.addFBFriendID(f_id!)
+                    let f_id:String = obj.objectForKey("user_id").stringValue as String!
+                   let f_name:String = obj.objectForKey("fb_name") as String!
+                    let f_photourl:String = obj.objectForKey("fb_url") as String!
+                    UserData.addFBFriendName(f_name)
+                    UserData.addFBFriendID(f_id)
                     var url:NSURL=NSURL(string:f_photourl)
                     UserData.addFBFriendImg(UIImage(data: NSData(contentsOfURL: url)))
                 }
             }
             
+            
             var storyboard: UIStoryboard = UIStoryboard(name:"Main",bundle:nil)
-            //UIStoryboard storyboardWithName:@"Main" bundle:nil];
             var controller:MainTabController = storyboard.instantiateViewControllerWithIdentifier("maintab") as MainTabController
             self.presentModalViewController(controller, animated: true)
         }
+    
+    //show progress
+    func showWaiting(){
+        var fullScreenBounds:CGRect = UIScreen.mainScreen().bounds
+        var progressInd:UIActivityIndicatorView = UIActivityIndicatorView(frame:CGRectMake(fullScreenBounds.width/2-25, fullScreenBounds.height/2+30, 50, 50))
+        progressInd.startAnimating()
+        progressInd.activityIndicatorViewStyle = UIActivityIndicatorViewStyle.White;
+        
+        self.view.addSubview(progressInd)
+    }
+
     
     
 }

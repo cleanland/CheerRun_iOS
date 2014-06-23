@@ -25,6 +25,15 @@ class MainRunViewController: UIViewController,CLLocationManagerDelegate,MKMapVie
     @IBOutlet var txt_runTime:UILabel
     @IBOutlet var info_view:UIView
     @IBOutlet var mapView : MKMapView
+    @IBOutlet var speed_info:UILabel
+    @IBOutlet var average_info:UILabel
+    @IBOutlet var speed_view:UIView
+    @IBOutlet var controll:UIView
+    @IBOutlet var pause:UIButton
+    @IBOutlet var stop:UIButton
+    @IBOutlet var go:UILabel
+    @IBOutlet var kal_view:UIView
+    @IBOutlet var kal_info:UILabel
     let locationManager:CLLocationManager=CLLocationManager();
     var delegate : MapViewControllerDelegate? = nil
     var loc:CLLocation=CLLocation()
@@ -36,22 +45,34 @@ class MainRunViewController: UIViewController,CLLocationManagerDelegate,MKMapVie
     var distance:CDouble?=0
     var run_timer: NSTimer!
     var upload_timer: NSTimer!
+    var high_speed = 0
+    var kal = 0.0
+    var bool_pause = false
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        locationManager.requestAlwaysAuthorization()
-        locationManager.delegate=self
-        var loginView=FBLoginView()
+        
+        //initial UI
         info_view.hidden=true
-        self.mapView.delegate=self
-        locationManager.desiredAccuracy=kCLLocationAccuracyBest;
-        locationManager.startUpdatingLocation();
-        mapView.showsUserLocation=false
+        controll.hidden=true
+        speed_view.hidden=true
+        info_view.hidden=true
+        kal_view.hidden=true
         distance = 0
         count = 0
-        //txt_distance.font = UIFont(name:"Arial Black", size:29)
-        //txt_runTime.font = UIFont(name:"Arial Black", size:29)
-        // Do any additional setup after loading the view.
+        high_speed = 0
+        kal=0.0
+        bool_pause=false
+        
+        //setup location
+        self.mapView.delegate=self
+        mapView.showsUserLocation=false
+        locationManager.requestAlwaysAuthorization()
+        locationManager.delegate=self
+        locationManager.desiredAccuracy=kCLLocationAccuracyBest;
+        locationManager.startUpdatingLocation();
+    
+        //determine whether you login
         if FBSession.activeSession().isOpen {
             println("map login")
             for var i=0;i<UserData.getFriendID().count;i++ {
@@ -59,7 +80,7 @@ class MainRunViewController: UIViewController,CLLocationManagerDelegate,MKMapVie
                 var coor:CLLocationCoordinate2D=UserData.getFriendLoc()[i]
                 annotation.coordinate = coor;
                 //println(coor.latitude)
-                annotation.title=UserData.getFriendName()?.objectAtIndex(i)? as String
+                annotation.title=UserData.getFriendName().objectAtIndex(i) as String
                 if coor.longitude != 0.0 && coor.latitude != 0.0 {
                     mapView.addAnnotation(annotation)
                 }
@@ -72,26 +93,12 @@ class MainRunViewController: UIViewController,CLLocationManagerDelegate,MKMapVie
         super.didReceiveMemoryWarning()
         // Dispose of any resources that can be recreated.
     }
-    
-    func loginViewFetchedUserInfo(loginView:FBLoginView,
-        user fb_user:FBGraphUser){
-            
-    }
-    
-    
-    
-//    func mapView(mapView: MKMapView!,
-//        didUpdateUserLocation userLocation: MKUserLocation!)
-//    {
-//        NSLog("update 緯度: %f 經度: %f", userLocation.location.coordinate.latitude,userLocation.location.coordinate.longitude);
-//
-//    }
 
     func locationManager(_manager: CLLocationManager!,
         didUpdateToLocation newLocation: CLLocation!,
         fromLocation oldLocation: CLLocation!)
     {
-       
+        //setup showUser
         if mapView.showsUserLocation==true {
             var mapSpan=MKCoordinateSpan(latitudeDelta:0.005,longitudeDelta:0.005);
             
@@ -99,45 +106,65 @@ class MainRunViewController: UIViewController,CLLocationManagerDelegate,MKMapVie
             mapView.setRegion(region,animated:true)
             
         }
+        
+        //if user is running
         if flag  {
             //add distance
             var dis:CLLocationDistance?=newLocation.distanceFromLocation(oldLocation)
-            distance = distance! + dis!
-            let d:Double?=distance;
-            txt_distance.text = String(Int(d!))
-            if old.coordinate.longitude != 0.0 && old.coordinate.latitude != 0.0 {
-                var locations = [CLLocation(latitude:newLocation.coordinate.latitude,longitude:newLocation.coordinate.longitude),CLLocation(latitude:old.coordinate.latitude,longitude:old.coordinate.longitude)]
-                var coordinates = locations.map({ (location: CLLocation) ->
-                    CLLocationCoordinate2D in
-                    return location.coordinate
-                    })
-                var polyline = MKPolyline(coordinates: &coordinates,
-                    count: locations.count)
-                mapView.addOverlay(polyline)
+            if dis<13 {
+                let d:Double?=distance;
+                let k = 60 * (Double(dis!) / 1000 * 1.036)
+                println(k)
+                kal = Double(kal) + Double(k)
+                kal_info.text = String(Int(kal))
+                let speed=Double(d!)/Double(count+1)
+                distance = distance! + dis!
+                if Double(high_speed) < Double(dis!) {
+                    high_speed = Int(dis!)
+                    let diss:Double?=dis;
+                    speed_info.text = String(Int(diss!))
+                    //kal_info.text = String()
+                }
+                txt_distance.text = String(Int(d!))
+                average_info.text = String(Int(speed))
+                
+                //if location is not eqal 0, it has annotation
+                if old.coordinate.longitude != 0.0 && old.coordinate.latitude != 0.0 {
+                    var locations = [CLLocation(latitude:newLocation.coordinate.latitude,longitude:newLocation.coordinate.longitude),CLLocation(latitude:old.coordinate.latitude,longitude:old.coordinate.longitude)]
+                    var coordinates = locations.map({ (location: CLLocation) ->
+                        CLLocationCoordinate2D in
+                        return location.coordinate
+                        })
+                    var polyline = MKPolyline(coordinates: &coordinates,
+                        count: locations.count)
+                    mapView.addOverlay(polyline)
+                }
             }
+            old=newLocation
         }
-         old=newLocation
     }
     
+    //what will happen when u click annotation
     func mapView(mapView: MKMapView!,
         didSelectAnnotationView view: MKAnnotationView!) {
             for var i = 0;i<UserData.getFriendID().count;i++ {
                 if view.annotation.title == UserData.getFriendName()?.objectAtIndex(i) as NSString {
-                    SCLAlertView().showSuccess(self, title: UserData.getFriendName()?.objectAtIndex(i)? as String, img: UserData.getFriendImg()?.objectAtIndex(i)? as UIImage, id:UserData.getFriendID()?.objectAtIndex(i)? as String)
+                    SCLAlertView().showSuccess(self, title: UserData.getFriendName().objectAtIndex(i) as String, img: UserData.getFriendImg().objectAtIndex(i) as UIImage, id:UserData.getFriendID().objectAtIndex(i) as String)
                 }
             }
     }
     
-    
+    //drawline on map
     func mapView(mapView: MKMapView!,
         rendererForOverlay overlay: MKOverlay!) -> MKOverlayRenderer!{
             
         var circleRenderer = MKPolylineRenderer(overlay: overlay)
-        circleRenderer.strokeColor = UIColor(red:(0/255.0), green:100/255.0, blue:255/255.0, alpha:1)
-        circleRenderer.lineWidth=5
+        circleRenderer.strokeColor = UIColor(red:(0/255.0), green:70/255.0, blue:255/255.0, alpha:1)
+        circleRenderer.lineWidth=3
         return circleRenderer
     }
     
+    //button that location or not
     @IBAction func loc(sender : AnyObject){
         getAudio()
         if mapView.showsUserLocation==true {
@@ -149,6 +176,7 @@ class MainRunViewController: UIViewController,CLLocationManagerDelegate,MKMapVie
         }
     }
     
+    //setup all the annotation attribute
     func mapView(mapView: MKMapView!,
         viewForAnnotation annotation: MKAnnotation!) -> MKAnnotationView! {
             var pinView:MKPinAnnotationView = MKPinAnnotationView(annotation:annotation, reuseIdentifier:"annotation")
@@ -173,42 +201,79 @@ class MainRunViewController: UIViewController,CLLocationManagerDelegate,MKMapVie
             return nil
     }
     
+    //Run button function
     @IBAction func run(sender : AnyObject){
         if(!flag){
+            //add annotation
             var annotation:MKPointAnnotation=MKPointAnnotation()
             var coor:CLLocationCoordinate2D=CLLocationCoordinate2D(latitude: old.coordinate.latitude,longitude: old.coordinate.longitude)
             annotation.coordinate = coor;
             annotation.title="起點"
+            
+            //show where u r
             mapView.addAnnotation(annotation)
             mapView.showsUserLocation=true
+            
+            //bool that u r running
             flag=true
+            
+            //UI Change
             info_view.hidden=false
-            //set timer
-            run_timer = NSTimer.scheduledTimerWithTimeInterval(1, target: self, selector: Selector("time_count"), userInfo: nil, repeats: true)
-            upload_timer = NSTimer.scheduledTimerWithTimeInterval(3, target: self, selector: Selector("loc_upload"), userInfo: nil, repeats: true)
-        }
-        else {
-            var annotation:MKPointAnnotation=MKPointAnnotation()
-            var coor:CLLocationCoordinate2D=CLLocationCoordinate2D(latitude: old.coordinate.latitude,longitude: old.coordinate.longitude)
-            annotation.coordinate = coor;
-            annotation.title="終點"
-            mapView.addAnnotation(annotation)
-            flag = false
-            run_timer.invalidate()
-            upload_timer.invalidate()
             txt_runTime.text = "00:00"
             txt_distance.text = "0"
-            count = 0
-            //info_view.hidden=true
-            old=CLLocation()
+            controll.hidden=false
+            btn_run.hidden=true
+            run_timer = NSTimer.scheduledTimerWithTimeInterval(1, target: self, selector: Selector("time_count"), userInfo: nil, repeats: true)
+            upload_timer = NSTimer.scheduledTimerWithTimeInterval(10, target: self, selector: Selector("loc_upload"), userInfo: nil, repeats: true)
         }
     }
     
+    //stop button function
+    @IBAction func stop(sender : AnyObject){
+        //add annotation
+        var annotation:MKPointAnnotation=MKPointAnnotation()
+        var coor:CLLocationCoordinate2D=CLLocationCoordinate2D(latitude: old.coordinate.latitude,longitude: old.coordinate.longitude)
+        annotation.coordinate = coor;
+        annotation.title="終點"
+        mapView.addAnnotation(annotation)
+        
+        //bool that u r not running
+        flag = false
+        
+        //UI Change
+        run_timer.invalidate()
+        upload_timer.invalidate()
+        count = 0
+        old=CLLocation()
+        controll.hidden=true
+        btn_run.hidden=false
+    }
+    
+    //pause button function
+    @IBAction func pause(sender : AnyObject){
+        if !bool_pause {
+            run_timer.invalidate()
+            upload_timer.invalidate()
+            bool_pause=true
+            go.text="繼續"
+            flag = false;
+        }
+        else {
+            run_timer = NSTimer.scheduledTimerWithTimeInterval(1, target: self, selector: Selector("time_count"), userInfo: nil, repeats: true)
+            upload_timer = NSTimer.scheduledTimerWithTimeInterval(10, target: self, selector: Selector("loc_upload"), userInfo: nil, repeats: true)
+            bool_pause=false
+            go.text="暫停"
+            flag = true
+        }
+    }
+    
+    //upload user location to server
     func loc_upload() {
         var post :String="id=\(UserData.uid)&token=\(UserData.token)&newlat=\(old.coordinate.latitude)&newlon=\(old.coordinate.longitude)"
         var json:NSString=UserData.getJSON("user/mod", post: post)
     }
     
+    //caluate what time that user has run
     func time_count() {
         var hr = 0
         var min = 0
@@ -231,6 +296,7 @@ class MainRunViewController: UIViewController,CLLocationManagerDelegate,MKMapVie
                     time = "00:0\(sec)"
                 }
                 else {
+                    
                     time = "00:\(sec)"
                 }
             }
@@ -265,6 +331,7 @@ class MainRunViewController: UIViewController,CLLocationManagerDelegate,MKMapVie
         count++
     }
     
+    //get audio data and play
     func getAudio() {
         var error:NSError;
         var post="id="+UserData.uid!+"&token="+UserData.token!
@@ -287,10 +354,28 @@ class MainRunViewController: UIViewController,CLLocationManagerDelegate,MKMapVie
 //                var file_data:NSData=UserData.getAudioFile(fileName)
 //                var player:AVAudioPlayer = AVAudioPlayer(data:file_data,error:nil)
 //                println(file_data)
-//                player.player()
+//                player.play()
             }
         }
         
+    }
+    
+    @IBAction func change_to_speed(sender : AnyObject){
+        speed_view.hidden=false
+        info_view.hidden=true
+        kal_view.hidden=true
+    }
+    
+    @IBAction func change_to_kal(sender : AnyObject) {
+        speed_view.hidden=true
+        info_view.hidden=true
+        kal_view.hidden=false
+    }
+    
+    @IBAction func change_to_info(sender : AnyObject) {
+        speed_view.hidden=true
+        info_view.hidden=false
+        kal_view.hidden=true
     }
     
 }

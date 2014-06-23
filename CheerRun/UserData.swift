@@ -21,9 +21,9 @@ var _friendLoc:CLLocationCoordinate2D[] = []
 var _fbFriendName:NSMutableArray?=NSMutableArray()
 var _fbFriendID:NSMutableArray?=NSMutableArray()
 var _fbFriendImg:NSMutableArray?=NSMutableArray()
-//var _server="http://localhost:1134/"
+var _server="http://localhost:1134/"
 //var _server="http://lospot.tw:1134/"
-var _server="http://140.138.5.197:1134/" //社辦電腦
+//var _server="http://140.138.5.197:1134/" //社辦電腦
 
 class UserData: NSObject {
     
@@ -202,7 +202,7 @@ class UserData: NSObject {
         theBodyData.appendData(("\r\n--"+boundary+"--\r\n").dataUsingEncoding(NSUTF8StringEncoding))
         theRequest!.HTTPBody=theBodyData
         let request = theRequest!
-        var update_received:NSData = NSURLConnection.sendSynchronousRequest(request, returningResponse: nil, error: nil)
+        var update_received:NSData = NSURLConnection.sendSynchronousRequest(theRequest, returningResponse: nil, error: nil)
         
         var update_json:NSString = NSString(data:update_received,encoding:NSUTF8StringEncoding)
         

@@ -20,6 +20,8 @@ class FriendListViewController: UIViewController, UITableViewDataSource, UITable
         tableview.dataSource = self
         tableview.delegate=self
         tableview.backgroundColor = UIColor.clearColor()
+        
+        //recomand friend && not your friend
         for var i = 0;i<UserData.getFriendID().count;i++ {
             for var j = 0;j<UserData.getFBFriendID().count;j++ {
                 if (UserData.getFBFriendID().objectAtIndex(j) as NSString) == (UserData.getFriendID().objectAtIndex(i) as NSString) {
@@ -48,7 +50,7 @@ class FriendListViewController: UIViewController, UITableViewDataSource, UITable
             if sectionIndex == 0 {
                 var view:UIView = UIView(frame:CGRectMake(0, 0, tableView.frame.size.width, 40))
                
-                view.backgroundColor = UIColor(red:167/255.0, green:167/255.0, blue:167/255.0, alpha:0.8);
+                view.backgroundColor = UIColor(red:100/255.0, green:100/255.0, blue:100/255.0, alpha:0.8);
                 
                 var label:UILabel = UILabel(frame:CGRectMake(10, 3, 0, 0));
                 label.text = "RÜN好友";
@@ -63,10 +65,10 @@ class FriendListViewController: UIViewController, UITableViewDataSource, UITable
             else if sectionIndex == 1{
                 var view:UIView = UIView(frame:CGRectMake(0, 0, tableView.frame.size.width, 40))
                 
-                view.backgroundColor = UIColor(red:167/255.0, green:167/255.0, blue:167/255.0, alpha:0.6);
+                view.backgroundColor = UIColor(red:100/255.0, green:100/255.0, blue:100/255.0, alpha:0.8);
                 
                 var label:UILabel = UILabel(frame:CGRectMake(10, 3, 0, 0));
-                label.text = "尚未加入CheerRÜN";
+                label.text = "建議好友";
                 label.font = UIFont.systemFontOfSize(15);
                 label.textColor = UIColor.whiteColor();
                 label.backgroundColor = UIColor.clearColor();
@@ -98,7 +100,7 @@ class FriendListViewController: UIViewController, UITableViewDataSource, UITable
         var cellIdentifier : String?="cell"
         var cell:UITableViewCell = UITableViewCell(style: UITableViewCellStyle.Subtitle, reuseIdentifier: "cell")
         if indexPath.section == 0 {
-            cell.textLabel.text=UserData.getFriendName()?.objectAtIndex(indexPath.row)? as String
+            cell.textLabel.text=UserData.getFriendName().objectAtIndex(indexPath.row) as String
             var size:CGSize=CGSize(width: 40,height: 40);
             cell.imageView.image=reSizeImage(UserData.getFriendImg()?.objectAtIndex(indexPath.row)? as UIImage , toSize: size)
             cell.imageView.layer.cornerRadius=20;
@@ -127,7 +129,7 @@ class FriendListViewController: UIViewController, UITableViewDataSource, UITable
         }
         
         else if indexPath.section == 1 {
-            cell.textLabel.text=UserData.getFBFriendName()?.objectAtIndex(indexPath.row)? as String
+            cell.textLabel.text=UserData.getFBFriendName().objectAtIndex(indexPath.row) as String
             var size:CGSize=CGSize(width: 40,height: 40);
             cell.imageView.image=reSizeImage(UserData.getFBFriendImg()?.objectAtIndex(indexPath.row)? as UIImage , toSize: size)
             cell.imageView.layer.cornerRadius=20;
@@ -158,16 +160,16 @@ class FriendListViewController: UIViewController, UITableViewDataSource, UITable
     return reSizeImage;
     
     }
-
+    
     @IBAction func sendMessage(sender : AnyObject){
         var btn_id:UIButton = sender as UIButton
         
-        SCLAlertView().showSuccess(self, title: UserData.getFriendName()?.objectAtIndex(btn_id.tag)? as String, img: UserData.getFriendImg()?.objectAtIndex(btn_id.tag)? as UIImage, id:UserData.getFriendID()?.objectAtIndex(btn_id.tag)? as String)
+        SCLAlertView().showSuccess(self, title: UserData.getFriendName().objectAtIndex(btn_id.tag) as String, img: UserData.getFriendImg().objectAtIndex(btn_id.tag) as UIImage, id:UserData.getFriendID().objectAtIndex(btn_id.tag) as String)
     }
     
     @IBAction func AddRequest(sender : AnyObject){
         var btn_id:UIButton = sender as UIButton
-        var post :String="id=\(UserData.uid)&token=\(UserData.token)&to=\(UserData.getFBFriendID()?.objectAtIndex(btn_id.tag)? as String)"
+        var post :String="id=\(UserData.uid)&token=\(UserData.token)&to=\(UserData.getFBFriendID().objectAtIndex(btn_id.tag) as String)"
         var json:NSString=UserData.getJSON("friend/add", post: post)
         
         UserData.addFriendName(UserData.getFBFriendName().objectAtIndex(btn_id.tag) as String)
